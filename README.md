@@ -1,5 +1,11 @@
 # RetailPulse — Python Data Pipeline 📊
 
+## Live Dashboard
+
+[**View Interactive Dashboard**](https://retailpulse-bernardo-demo.sunnyduck17.chatgpt.site)
+
+Explore sales performance, revenue, orders, refunds, and data quality metrics through an interactive dashboard built from the pipeline's sample data.
+
 **A compact, reproducible ETL pipeline that validates retail transactions, stores them in SQLite, and generates monthly sales analytics with Pandas.**
 
 Built as an original portfolio project to demonstrate Python development, data cleaning, SQL, idempotent ingestion, automated testing, and practical business metrics.
