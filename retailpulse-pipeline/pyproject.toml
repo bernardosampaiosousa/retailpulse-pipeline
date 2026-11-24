@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "retailpulse-pipeline"
+version = "1.0.0"
+description = "A reproducible Python ETL pipeline for retail sales analytics"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [{name = "Bernardo Sampaio"}]
+dependencies = ["pandas>=2.2,<4"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<10"]
+
+[project.scripts]
+retailpulse = "retailpulse.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["retailpulse*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"

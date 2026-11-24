@@ -1,0 +1,4 @@
+row_number,transaction_id,reason
+14,TX-013,unit_price_usd: expected a positive USD price with at most two decimals
+15,TX-014,unit_price_usd: expected a positive USD price with at most two decimals
+18,TX-016,duplicate transaction_id in the same input file
