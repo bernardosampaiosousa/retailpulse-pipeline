@@ -139,7 +139,6 @@ tests/                # Unit and end-to-end tests
 ## Future improvements
 
 - Add an incremental ingestion checkpoint for large batches.
-- Build a dashboard from the KPI exports.
 - Introduce anomaly detection to flag unusual refund rates.
 - Implement a scheduled pipeline with versioned migrations.
 
