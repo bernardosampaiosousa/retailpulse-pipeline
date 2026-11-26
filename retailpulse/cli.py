@@ -11,6 +11,7 @@ SAMPLE_CSV = Path(__file__).resolve().parent.parent / "data" / "sample_sales.csv
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Routes CLI commands through the same import and reporting code used by tests."""
     parser = argparse.ArgumentParser(
         prog="retailpulse", description="Validate, store and analyze retail sales CSVs."
     )

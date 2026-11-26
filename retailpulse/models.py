@@ -35,6 +35,7 @@ class Transaction:
 
 
 def _identifier(raw: Mapping[str, str | None], key: str) -> str:
+    """Keeps incoming IDs in one safe format before writing them to SQLite."""
     value = (raw.get(key) or "").strip()
     if not IDENTIFIER.fullmatch(value):
         raise ValidationError(f"{key}: expected 2-64 alphanumeric characters, _ or -")
@@ -42,7 +43,7 @@ def _identifier(raw: Mapping[str, str | None], key: str) -> str:
 
 
 def parse_transaction(raw: Mapping[str, str | None]) -> Transaction:
-    """Parse one row without floating-point money or silent coercion."""
+    """Normalizes a CSV row and rejects values that could distort the reports."""
     transaction_id = _identifier(raw, "transaction_id")
     order_id = _identifier(raw, "order_id")
     customer_id = _identifier(raw, "customer_id")

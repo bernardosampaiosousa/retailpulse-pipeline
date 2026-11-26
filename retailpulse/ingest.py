@@ -18,7 +18,7 @@ class IngestStats:
 
 
 def ingest_csv(source: Path, db_path: Path, rejected_path: Path) -> IngestStats:
-    """Import valid rows and write rejection reasons without copying raw data."""
+    """Loads valid sales into SQLite and records why other rows were rejected."""
     rejected_path.parent.mkdir(parents=True, exist_ok=True)
     counts = {"inserted": 0, "updated": 0, "unchanged": 0, "rejected": 0}
     seen: set[str] = set()
@@ -32,6 +32,7 @@ def ingest_csv(source: Path, db_path: Path, rejected_path: Path) -> IngestStats:
         if missing:
             raise ValueError(f"CSV missing columns: {', '.join(sorted(missing))}")
 
+        # Keep the previous rejection report if this import fails halfway through.
         temporary_report: Path | None = None
         try:
             with NamedTemporaryFile(
