@@ -33,6 +33,7 @@ FIELDS = (
 
 @contextmanager
 def database(path: Path) -> Iterator[sqlite3.Connection]:
+    """Opens SQLite with the expected tables and closes it after use."""
     path.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(path)
     try:
@@ -44,7 +45,7 @@ def database(path: Path) -> Iterator[sqlite3.Connection]:
 
 
 def save_transaction(connection: sqlite3.Connection, item: Transaction) -> str:
-    """Insert or update a transaction, returning inserted/updated/unchanged."""
+    """Uses transaction IDs to update corrected sales without inserting duplicates."""
     existing = connection.execute(
         "SELECT " + ", ".join(FIELDS) + " FROM transactions WHERE transaction_id = ?",
         (item.transaction_id,),

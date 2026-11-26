@@ -13,7 +13,7 @@ REPORT_COLUMNS = [
 
 
 def monthly_kpis(connection: sqlite3.Connection) -> pd.DataFrame:
-    """Compute monthly KPIs; all monetary arithmetic stays in integer cents."""
+    """Groups sales and refunds by month and country to build the summary."""
     sales = pd.read_sql_query(
         "SELECT order_id, ordered_at, country, quantity, unit_price_cents, status FROM transactions",
         connection,
@@ -51,6 +51,7 @@ def monthly_kpis(connection: sqlite3.Connection) -> pd.DataFrame:
 
 
 def write_report(db_path: Path, output_path: Path) -> pd.DataFrame:
+    """Exports those KPIs as CSV so they can be used without running Python."""
     if not db_path.is_file():
         raise FileNotFoundError(f"Database not found: {db_path}. Run ingest first.")
     with sqlite3.connect(db_path) as connection:

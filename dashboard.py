@@ -14,6 +14,7 @@ def load_sample_report(path: Path = REPORT) -> pd.DataFrame:
 
 
 def main() -> None:
+    """Shows the sample KPIs with country filters; no database is needed to browse them."""
     import streamlit as st
 
     st.set_page_config(page_title="RetailPulse", layout="wide")
