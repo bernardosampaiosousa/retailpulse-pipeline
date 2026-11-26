@@ -80,6 +80,24 @@ def test_unexpected_format_error_rolls_back_earlier_rows(tmp_path):
     assert count_rows(db) == 0
 
 
+def test_failed_import_does_not_replace_last_rejection_report(tmp_path):
+    db = tmp_path / "retail.sqlite"
+    rejects = tmp_path / "rejects.csv"
+    ingest_csv(SAMPLE, db, rejects)
+    previous_report = rejects.read_bytes()
+
+    lines = SAMPLE.read_text(encoding="utf-8").splitlines()
+    broken = tmp_path / "broken.csv"
+    broken.write_text("\n".join(lines[:2] + [lines[2] + ",EXTRA"]) + "\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="more values"):
+        ingest_csv(broken, db, rejects)
+
+    assert rejects.read_bytes() == previous_report
+    assert count_rows(db) == 14
+    assert not list(tmp_path.glob(".rejects.csv.*.tmp"))
+
+
 def test_monthly_kpis_handle_refunds_cancelled_orders_and_aov(tmp_path):
     db = tmp_path / "retail.sqlite"
     ingest_csv(SAMPLE, db, tmp_path / "rejects.csv")

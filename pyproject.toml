@@ -14,6 +14,7 @@ dependencies = ["pandas>=2.2,<4"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8,<10"]
+dashboard = ["streamlit>=1.40,<2"]
 
 [project.scripts]
 retailpulse = "retailpulse.cli:main"

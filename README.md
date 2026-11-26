@@ -1,43 +1,14 @@
-# RetailPulse — Python Data Pipeline 📊
+# RetailPulse
 
-## Live Dashboard
+RetailPulse is a Python project for turning retail CSV exports into a small SQLite database and monthly sales reports.
 
-[**View Interactive Dashboard**](https://retailpulse-bernardo-demo.sunnyduck17.chatgpt.site)
+I made it to practice the less glamorous part of data work: cleaning up inconsistent input, keeping reimports predictable, and making sure refunds don't inflate revenue. The included data is fictional, so you can run everything locally.
 
-Explore sales performance, revenue, orders, refunds, and data quality metrics through an interactive dashboard built from the pipeline's sample data.
+## Try it with the sample data
 
-**A compact, reproducible ETL pipeline that validates retail transactions, stores them in SQLite, and generates monthly sales analytics with Pandas.**
+Python 3.11+ is required. You don't need Docker or an external database.
 
-Built as an original portfolio project to demonstrate Python development, data cleaning, SQL, idempotent ingestion, automated testing, and practical business metrics.
-
-> The sample dataset is entirely fictional. No private company data, credentials, or paid cloud services are needed.
-
-## Highlights
-
-- **Extract:** read transactional CSV exports with a documented input schema.
-- **Transform:** normalize identifiers, dates, categories and status; validate rows; convert monetary values to **integer cents** using Python's `Decimal`.
-- **Load:** write to SQLite, deduplicating transaction IDs in each file and updating corrected records on later imports.
-- **Reject:** save invalid rows' numbers, IDs and explanations in a separate file, without copying raw customer records.
-- **Analyze:** use Pandas to aggregate monthly gross revenue, refunds, net revenue, paid orders, units sold, and average order value.
-- **Test:** automated unit and end-to-end tests with disposable local SQLite databases.
-- **Automate:** GitHub Actions runs tests and the sample pipeline after every push.
-
-## Architecture
-
-```mermaid
-flowchart TD
-    A[CSV export] --> B[Validation & normalization]
-    B -->|Accepted rows| C[(SQLite)]
-    B -->|Rejected rows| D[Rejection report]
-    C --> E[Pandas aggregation]
-    E --> F[Monthly KPI CSV]
-```
-
-## Quick start (Windows PowerShell)
-
-**Requirements:** Python 3.11 or newer. Docker and MySQL are **not** needed.
-
-Open this project folder in VS Code, then run:
+On Windows PowerShell:
 
 ```powershell
 py -m venv .venv
@@ -45,103 +16,96 @@ py -m venv .venv
 .\.venv\Scripts\python.exe -m retailpulse demo
 ```
 
-The last command creates the `output/demo/` folder with three files:
+On macOS/Linux:
 
-| File | Contents |
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -e '.[dev]'
+.venv/bin/python -m retailpulse demo
+```
+
+The demo writes three files to `output/demo/`:
+
+| File | What it's for |
 | --- | --- |
-| `retailpulse.sqlite` | Normalized, queryable transaction database |
-| `rejected_rows.csv` | Data-quality failures and explanations |
-| `monthly_kpis.csv` | Monthly KPIs by country |
+| `retailpulse.sqlite` | Cleaned transactions you can query with SQL |
+| `rejected_rows.csv` | Row numbers and reasons for rejected records |
+| `monthly_kpis.csv` | Revenue, refunds, orders, units, and average order value |
 
-**Preview without running any code:** see the committed [KPI report](examples/monthly_kpis.csv) and [rejected-row report](examples/rejected_rows.csv).
+Run the demo twice. On the second run, the same transactions are reported as unchanged rather than inserted again.
 
-Run it again to see idempotency: previously imported records become **unchanged**, not duplicated.
+The generated examples are also checked into [`examples/`](examples/), so you can inspect the output without installing Python.
 
-### Automated tests
+## Optional dashboard
 
-```powershell
-.\.venv\Scripts\python.exe -m pytest -q
-```
-
-On macOS/Linux, replace `py` with `python3` and use `.venv/bin/python` instead of `.venv\Scripts\python.exe`.
-
-## CLI
-
-Run the sample demo:
+There is a small Streamlit dashboard in [`dashboard.py`](dashboard.py). It reads the checked-in monthly report, so anyone can reproduce the charts without a database or a separate website.
 
 ```bash
-python -m retailpulse demo --output-dir output/demo
+python -m pip install -e '.[dashboard]'
+streamlit run dashboard.py
 ```
 
-Ingest your own CSV:
+It has country filters, sales totals, a monthly net-revenue chart, and the report table. The previous externally hosted dashboard isn't required to run this version.
 
-```bash
-python -m retailpulse ingest --input data/sample_sales.csv --db output/retailpulse.sqlite --rejects output/rejected_rows.csv
-```
+## What the pipeline does
 
-Generate an analysis report from an existing SQLite database:
+1. Reads a CSV and checks the required columns.
+2. Validates dates, IDs, country codes, quantities, statuses, and USD prices.
+3. Stores accepted transactions in SQLite, keyed by `transaction_id`.
+4. Saves rejected row numbers and explanations in a separate CSV.
+5. Uses Pandas to calculate monthly metrics by country.
 
-```bash
-python -m retailpulse report --db output/retailpulse.sqlite --output output/monthly_kpis.csv
-```
+`PAID` rows add to gross revenue; `REFUNDED` rows subtract from net revenue; `CANCELLED` rows don't affect revenue. Multiple paid lines on the same order count as one paid order for average order value.
 
-## Input data contract
+The sample includes intentional data errors. From one clean run, the September Brazil summary is:
 
-| CSV field | Example | Requirement |
-| --- | --- | --- |
-| `transaction_id` | `TX-001` | Unique per sale/refund event |
-| `order_id` | `ORD-100` | Order identifier; may have multiple transactions |
-| `customer_id` | `C-01` | Anonymous/customer reference |
-| `ordered_at` | `2026-09-01` | ISO calendar date |
-| `country` | `BR` | Two-letter code |
-| `category` | `Electronics` | Text category |
-| `quantity` | `2` | Positive integer (1–1000) |
-| `unit_price_usd` | `99.90` | Positive decimal amount in USD (exact cents) |
-| `status` | `PAID` | `PAID`, `REFUNDED` or `CANCELLED` |
+| Gross revenue | Refunds | Net revenue | Paid orders |
+| ---: | ---: | ---: | ---: |
+| $130.90 | $99.90 | $31.00 | 2 |
 
-**Interpretation:** `PAID` transactions add to gross revenue; `REFUNDED` transactions are subtracted from net revenue; `CANCELLED` transactions contribute no revenue. Refunded transactions use positive amounts and have their own transaction IDs. An order with multiple paid lines counts as **one paid order** when computing average order value.
+## Use another file
 
-## Example results
-
-After running the included synthetic sample file, one row of the summary looks like this:
-
-| Month | Country | Gross USD | Refunded USD | Net USD | Paid orders | Units sold | AOV USD |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| 2026-09 | BR | 130.90 | 99.90 | 31.00 | 2 | 3 | 65.45 |
-
-The sample intentionally includes invalid prices and a duplicate transaction ID; these go to the rejection report rather than silently altering the KPIs.
-
-## Important implementation decisions
-
-1. **Idempotency:** reimporting the same CSV doesn't create duplicates. Later corrected versions update existing records by `transaction_id`.
-2. **Money:** prices are checked with `Decimal` and stored as whole cents; no binary floating-point operations are used to persist money.
-3. **Transactional safety:** accepted records are committed together. Unexpected file-shape errors trigger a database rollback.
-4. **Rounding:** average order value is rounded half-up to the nearest cent using integer arithmetic.
-5. **Data quality:** rejected rows get actionable error reasons, enabling investigation without losing the successfully validated records.
-6. **Readable design:** input models, SQLite access, ingestion, reporting, and CLI are separate modules with tests.
-
-## Project structure
+Your input needs these columns:
 
 ```text
-retailpulse/
-  cli.py         # Command-line interface
-  models.py      # Typed transaction model and validation
-  database.py    # SQLite schema and idempotent persistence
-  ingest.py      # CSV ingestion and rejected-row handling
-  report.py      # Pandas metrics and CSV exports
-data/
-  sample_sales.csv   # Synthetic transactions
-examples/              # Preview CSV reports, available directly on GitHub
-tests/                # Unit and end-to-end tests
-.github/workflows/    # Automated checks
+transaction_id,order_id,customer_id,ordered_at,country,category,quantity,unit_price_usd,status
 ```
 
-## Future improvements
+- `ordered_at` uses YYYY-MM-DD.
+- `country` is a two-letter code.
+- `quantity` must be between 1 and 1000.
+- `unit_price_usd` must be positive with no fractional cents.
+- `status` is PAID, REFUNDED, or CANCELLED.
 
-- Add an incremental ingestion checkpoint for large batches.
-- Introduce anomaly detection to flag unusual refund rates.
-- Implement a scheduled pipeline with versioned migrations.
+Run the two steps separately:
 
-## License
+```bash
+python -m retailpulse ingest --input data/sample_sales.csv --db output/sales.sqlite --rejects output/rejected_rows.csv
+python -m retailpulse report --db output/sales.sqlite --output output/monthly_kpis.csv
+```
 
-MIT — see [LICENSE](LICENSE).
+I used Python's `Decimal` to parse prices and store them as integer cents. This avoids rounding errors while saving data. The ingestion uses a SQLite transaction, and an unexpected CSV format error rolls back the batch. The rejection report is written to a temporary file first, so a failed import doesn't overwrite the previous report.
+
+## Source and tests
+
+- [`retailpulse/models.py`](retailpulse/models.py) validates a transaction.
+- [`retailpulse/ingest.py`](retailpulse/ingest.py) handles CSV imports.
+- [`retailpulse/database.py`](retailpulse/database.py) handles SQLite writes.
+- [`retailpulse/report.py`](retailpulse/report.py) calculates monthly metrics.
+- [`tests/`](tests/) covers validation, repeated imports, corrected records, and reports.
+
+Run the tests with:
+
+```bash
+python -m pytest -q
+```
+
+GitHub Actions runs the tests and regenerates the sample report.
+
+## What isn't covered
+
+The pipeline processes an entire CSV in memory during reporting, so it isn't designed for huge datasets. It doesn't have scheduling, migrations, or anomaly detection. Those would make sense if I extended it beyond a local exercise.
+
+The sample dashboard uses committed output rather than live sales data. To refresh it, run the pipeline and update `examples/monthly_kpis.csv`.
+
+MIT license.
