@@ -3,6 +3,7 @@
 import csv
 from dataclasses import dataclass
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 
 from .database import database, save_transaction
 from .models import REQUIRED_COLUMNS, ValidationError, parse_transaction
@@ -31,26 +32,38 @@ def ingest_csv(source: Path, db_path: Path, rejected_path: Path) -> IngestStats:
         if missing:
             raise ValueError(f"CSV missing columns: {', '.join(sorted(missing))}")
 
-        with database(db_path) as conn, rejected_path.open("w", encoding="utf-8", newline="") as reject_stream:
-            writer = csv.DictWriter(reject_stream, fieldnames=["row_number", "transaction_id", "reason"])
-            writer.writeheader()
-            with conn:  # Commit accepted records together, or roll back on unexpected failures.
-                for number, row in enumerate(reader, start=2):
-                    if None in row:  # A line with too many columns.
-                        raise ValueError(f"CSV row {number}: more values than header columns")
-                    try:
-                        transaction = parse_transaction(row)
-                        if transaction.transaction_id in seen:
-                            raise ValidationError("duplicate transaction_id in the same input file")
-                    except ValidationError as exc:
-                        counts["rejected"] += 1
-                        writer.writerow({
-                            "row_number": number,
-                            "transaction_id": (row.get("transaction_id") or "")[:64],
-                            "reason": str(exc),
-                        })
-                        continue
-                    seen.add(transaction.transaction_id)
-                    counts[save_transaction(conn, transaction)] += 1
+        temporary_report: Path | None = None
+        try:
+            with NamedTemporaryFile(
+                mode="w", encoding="utf-8", newline="", dir=rejected_path.parent,
+                prefix=f".{rejected_path.name}.", suffix=".tmp", delete=False,
+            ) as reject_stream:
+                temporary_report = Path(reject_stream.name)
+                writer = csv.DictWriter(reject_stream, fieldnames=["row_number", "transaction_id", "reason"])
+                writer.writeheader()
+                with database(db_path) as conn:
+                    with conn:
+                        for number, row in enumerate(reader, start=2):
+                            if None in row:
+                                raise ValueError(f"CSV row {number}: more values than header columns")
+                            try:
+                                transaction = parse_transaction(row)
+                                if transaction.transaction_id in seen:
+                                    raise ValidationError("duplicate transaction_id in the same input file")
+                            except ValidationError as exc:
+                                counts["rejected"] += 1
+                                writer.writerow({
+                                    "row_number": number,
+                                    "transaction_id": (row.get("transaction_id") or "")[:64],
+                                    "reason": str(exc),
+                                })
+                                continue
+                            seen.add(transaction.transaction_id)
+                            counts[save_transaction(conn, transaction)] += 1
+
+            temporary_report.replace(rejected_path)
+        finally:
+            if temporary_report is not None:
+                temporary_report.unlink(missing_ok=True)
 
     return IngestStats(**counts)
